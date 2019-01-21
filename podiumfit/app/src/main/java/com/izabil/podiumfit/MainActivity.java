@@ -30,6 +30,7 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -37,6 +38,7 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -54,6 +56,7 @@ public class MainActivity extends AppCompatActivity implements
 
 
     private int pasosSemana=0;
+    private ArrayList<Object> historicoPasos = new ArrayList<>();
     private void setPasosSemana(int nuevos) {
         Log.e("HistoryAPI", "Pasos en semana: " + nuevos);
 
@@ -61,7 +64,8 @@ public class MainActivity extends AppCompatActivity implements
 
 
 // Add a new document with a generated ID
-    db.collection("users").document(mAuth.getUid()).update("pasos",pasosSemana);
+        db.collection("users").document(mAuth.getUid()).update("pasos",pasosSemana);
+        db.collection("users").document(mAuth.getUid()).update("hisorico",historicoPasos);
 
 
 
@@ -100,9 +104,9 @@ public class MainActivity extends AppCompatActivity implements
 
 
             cal.setTime(now);
-            cal.set(Calendar.HOUR_OF_DAY, 23); //so it get all day and not the current hour
-            cal.set(Calendar.MINUTE, 59); //so it get all day and not the current minute
-            cal.set(Calendar.SECOND, 59); //so it get all day and not the current minute
+            cal.set(Calendar.HOUR_OF_DAY, 23);
+            cal.set(Calendar.MINUTE, 59);
+            cal.set(Calendar.SECOND, 59);
 
 
             cal.getTime();
@@ -169,12 +173,27 @@ public class MainActivity extends AppCompatActivity implements
             Log.e("History", "Data point:");
             Log.e("History", "\tType: " + dp.getDataType().getName());
             Log.e("History", "\tStart: " + dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)) + " " + timeFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)));
-            Log.e("History", "\tEnd: " + dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)) + " " + timeFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)));
+            Log.e("History", "\tEnd: " + dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)) + " " + timeFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)));
             for(Field field : dp.getDataType().getFields()) {
                 Log.e("History", "\tField: " + field.getName() +
                         " Value: " + dp.getValue(field));
                 if (field.getName().equals("steps")){
                     cuentaPasos += dp.getValue(field).asInt();
+
+                    Map<String, Object> historicoActual = new HashMap<>();
+
+
+                    Calendar calendar = Calendar.getInstance();
+                    calendar.setTimeInMillis(dp.getEndTime(TimeUnit.MILLISECONDS));
+
+                    calendar.set(Calendar.HOUR_OF_DAY, 23);
+                    calendar.set(Calendar.MINUTE, 59);
+                    calendar.set(Calendar.SECOND, 59);
+
+                    historicoActual.put("date", calendar.getTime());
+                    historicoActual.put("pasos",dp.getValue(field).asInt());
+                    historicoPasos.add(historicoActual);
+
                 }
             }
         }
