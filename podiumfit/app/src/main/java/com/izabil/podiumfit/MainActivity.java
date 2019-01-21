@@ -20,6 +20,7 @@ import com.google.android.gms.fitness.Fitness;
 import com.google.android.gms.fitness.data.Bucket;
 import com.google.android.gms.fitness.data.DataPoint;
 import com.google.android.gms.fitness.data.DataSet;
+import com.google.android.gms.fitness.data.DataSource;
 import com.google.android.gms.fitness.data.DataType;
 import com.google.android.gms.fitness.data.Field;
 import com.google.android.gms.fitness.request.DataReadRequest;
@@ -42,6 +43,13 @@ public class MainActivity extends AppCompatActivity implements
     private FirebaseAuth mAuth;
     private static final String TAG = "LOGIN";
     private GoogleApiClient mGoogleApiClient;
+
+    private int pasosSemana=0;
+    private void setPasosSemana(int nuevos) {
+        Log.e("HistoryAPI", "Pasos en semana: " + nuevos);
+
+        pasosSemana = nuevos;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,7 +78,17 @@ public class MainActivity extends AppCompatActivity implements
 
             Calendar cal = Calendar.getInstance();
             Date now = new Date();
+
+
+
             cal.setTime(now);
+            cal.set(Calendar.HOUR_OF_DAY, 23); //so it get all day and not the current hour
+            cal.set(Calendar.MINUTE, 59); //so it get all day and not the current minute
+            cal.set(Calendar.SECOND, 59); //so it get all day and not the current minute
+
+
+            cal.getTime();
+
             long endTime = cal.getTimeInMillis();
             cal.add(Calendar.WEEK_OF_YEAR, -1);
             long startTime = cal.getTimeInMillis();
@@ -80,8 +98,16 @@ public class MainActivity extends AppCompatActivity implements
             Log.e("History", "Range End: " + dateFormat.format(endTime));
 
 //Check how many steps were walked and recorded in the last 7 days
+            final DataSource ds = new DataSource.Builder()
+                    .setAppPackageName("com.google.android.gms")
+                    .setDataType(DataType.TYPE_STEP_COUNT_DELTA)
+                    .setType(DataSource.TYPE_DERIVED)
+                    .setStreamName("estimated_steps")
+                    .build();
+
+
             DataReadRequest readRequest = new DataReadRequest.Builder()
-                    .aggregate(DataType.TYPE_STEP_COUNT_DELTA, DataType.AGGREGATE_STEP_COUNT_DELTA)
+                    .aggregate(ds, DataType.AGGREGATE_STEP_COUNT_DELTA)
                     .bucketByTime(1, TimeUnit.DAYS)
                     .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
                     .build();
@@ -89,6 +115,7 @@ public class MainActivity extends AppCompatActivity implements
 
             DataReadResult dataReadResult = Fitness.HistoryApi.readData(mGoogleApiClient, readRequest).await(1, TimeUnit.MINUTES);
 
+            int cuentaPasos = 0;
 
             //Used for aggregated data
             if (dataReadResult.getBuckets().size() > 0) {
@@ -96,7 +123,7 @@ public class MainActivity extends AppCompatActivity implements
                 for (Bucket bucket : dataReadResult.getBuckets()) {
                     List<DataSet> dataSets = bucket.getDataSets();
                     for (DataSet dataSet : dataSets) {
-                        showDataSet(dataSet);
+                        cuentaPasos += showDataSet(dataSet);
                     }
                 }
             }
@@ -104,16 +131,18 @@ public class MainActivity extends AppCompatActivity implements
             else if (dataReadResult.getDataSets().size() > 0) {
                 Log.e("History", "Number of returned DataSets: " + dataReadResult.getDataSets().size());
                 for (DataSet dataSet : dataReadResult.getDataSets()) {
-                    showDataSet(dataSet);
+                    cuentaPasos += showDataSet(dataSet);
                 }
             }
+            setPasosSemana(cuentaPasos);
             return null;
             //https://github.com/tutsplus/Android-GoogleFit-HistoryAPI/blob/master/app/src/main/java/com/tutsplus/googlefit/MainActivity.java
         }
 
     }
 
-    private void showDataSet(DataSet dataSet) {
+    private int showDataSet(DataSet dataSet) {
+        int cuentaPasos = 0;
         Log.e("History", "Data returned for Data type: " + dataSet.getDataType().getName());
         DateFormat dateFormat = DateFormat.getDateInstance();
         DateFormat timeFormat = DateFormat.getTimeInstance();
@@ -126,8 +155,13 @@ public class MainActivity extends AppCompatActivity implements
             for(Field field : dp.getDataType().getFields()) {
                 Log.e("History", "\tField: " + field.getName() +
                         " Value: " + dp.getValue(field));
+                if (field.getName().equals("steps")){
+                    cuentaPasos += dp.getValue(field).asInt();
+                }
             }
         }
+
+        return (cuentaPasos);
     }
 
     private void displayStepDataForToday() {
@@ -167,6 +201,16 @@ public class MainActivity extends AppCompatActivity implements
             displayStepDataForToday();
             return null;
         }
+    }
+
+    public static Date removeTime(Date date) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal.getTime();
     }
     @Override
     public void onConnectionSuspended(int i) {
