@@ -27,28 +27,45 @@ import com.google.android.gms.fitness.request.DataReadRequest;
 import com.google.android.gms.fitness.result.DailyTotalResult;
 import com.google.android.gms.fitness.result.DataReadResult;
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener {
     private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
+
     private static final String TAG = "LOGIN";
     private GoogleApiClient mGoogleApiClient;
+
 
     private int pasosSemana=0;
     private void setPasosSemana(int nuevos) {
         Log.e("HistoryAPI", "Pasos en semana: " + nuevos);
 
         pasosSemana = nuevos;
+
+
+// Add a new document with a generated ID
+    db.collection("users").document(mAuth.getUid()).update("pasos",pasosSemana);
+
+
+
+
     }
 
     @Override
@@ -57,6 +74,7 @@ public class MainActivity extends AppCompatActivity implements
         setContentView(R.layout.activity_main);
 
         mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
         signInAnonymously();
 
         mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -93,7 +111,7 @@ public class MainActivity extends AppCompatActivity implements
             cal.add(Calendar.WEEK_OF_YEAR, -1);
             long startTime = cal.getTimeInMillis();
 
-            java.text.DateFormat dateFormat = DateFormat.getDateInstance();
+            DateFormat dateFormat = DateFormat.getDateInstance();
             Log.e("History", "Range Start: " + dateFormat.format(startTime));
             Log.e("History", "Range End: " + dateFormat.format(endTime));
 
@@ -185,6 +203,15 @@ public class MainActivity extends AppCompatActivity implements
                         if (task.isSuccessful()) {
                             // Sign in success, update UI with the signed-in user's information
                             FirebaseUser user = mAuth.getCurrentUser();
+
+                            Map<String, Object> data = new HashMap<>();
+                            data.put("pasos", 0);
+                            data.put("author_id", mAuth.getUid());
+
+                            data.put("historico", new HashMap<>());
+
+                            db.collection("users").document(user.getUid()).set(data);
+
                         } else {
                             // If sign in fails, display a message to the user.
                             Toast.makeText(MainActivity.this, "Authentication failed.",
