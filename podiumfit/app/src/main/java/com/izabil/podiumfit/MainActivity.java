@@ -290,14 +290,27 @@ public class MainActivity extends AppCompatActivity implements
     public void podium(){
         db.collection("users")
                 .whereEqualTo("grupo", db.collection("grupo").document("default"))
+                .orderBy("pasos", Query.Direction.DESCENDING)
                 .get()
                 .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
                     @Override
                     public void onComplete(@NonNull Task<QuerySnapshot> task) {
                         if (task.isSuccessful()) {
+                            int cantidad = task.getResult().size();
+                            int posicion = 1;
                             for (QueryDocumentSnapshot document : task.getResult()) {
                                 Log.d(TAG, document.getId() + " => " + document.getData());
+                                Log.d(TAG, posicion + ". - Pasos: " + document.getData().get("pasos"));
+                                try {
+                                    if (document.getData().get("author_id").equals(mAuth.getUid())) {
+                                        Log.d(TAG, "  ^^^YO");
+                                    }
+                                } catch (NullPointerException e) {
+                                    Log.d(TAG, "");
+                                }
+                                posicion += 1;
                             }
+                            Log.d(TAG, "TOTAL: " + cantidad);
                         } else {
                             Log.d(TAG, "Error getting documents: ", task.getException());
                         }
