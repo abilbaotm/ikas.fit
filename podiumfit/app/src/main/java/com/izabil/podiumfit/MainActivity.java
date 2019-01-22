@@ -34,8 +34,14 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firestore.v1beta1.WriteResult;
 
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -43,6 +49,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity implements
@@ -157,6 +164,10 @@ public class MainActivity extends AppCompatActivity implements
                 }
             }
             setPasosSemana(cuentaPasos);
+
+            podium();
+
+
             return null;
             //https://github.com/tutsplus/Android-GoogleFit-HistoryAPI/blob/master/app/src/main/java/com/tutsplus/googlefit/MainActivity.java
         }
@@ -274,6 +285,24 @@ public class MainActivity extends AppCompatActivity implements
         Log.e("HistoryAPI", "onConnected");
 
         new ViewWeekStepCountTask().execute();
+    }
+
+    public void podium(){
+        db.collection("users")
+                .whereEqualTo("grupo", db.collection("grupo").document("default"))
+                .get()
+                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                        if (task.isSuccessful()) {
+                            for (QueryDocumentSnapshot document : task.getResult()) {
+                                Log.d(TAG, document.getId() + " => " + document.getData());
+                            }
+                        } else {
+                            Log.d(TAG, "Error getting documents: ", task.getException());
+                        }
+                    }
+                });
     }
 
 }
