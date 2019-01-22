@@ -27,28 +27,56 @@ import com.google.android.gms.fitness.request.DataReadRequest;
 import com.google.android.gms.fitness.result.DailyTotalResult;
 import com.google.android.gms.fitness.result.DataReadResult;
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firestore.v1beta1.WriteResult;
 
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener {
     private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
+
     private static final String TAG = "LOGIN";
     private GoogleApiClient mGoogleApiClient;
 
+
     private int pasosSemana=0;
+    private ArrayList<Object> historicoPasos = new ArrayList<>();
     private void setPasosSemana(int nuevos) {
         Log.e("HistoryAPI", "Pasos en semana: " + nuevos);
 
         pasosSemana = nuevos;
+
+
+// Add a new document with a generated ID
+        db.collection("users").document(mAuth.getUid()).update("pasos",pasosSemana);
+        db.collection("users").document(mAuth.getUid()).update("hisorico",historicoPasos);
+
+
+
+
     }
 
     @Override
@@ -57,6 +85,7 @@ public class MainActivity extends AppCompatActivity implements
         setContentView(R.layout.activity_main);
 
         mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
         signInAnonymously();
 
         mGoogleApiClient = new GoogleApiClient.Builder(this)
@@ -82,9 +111,9 @@ public class MainActivity extends AppCompatActivity implements
 
 
             cal.setTime(now);
-            cal.set(Calendar.HOUR_OF_DAY, 23); //so it get all day and not the current hour
-            cal.set(Calendar.MINUTE, 59); //so it get all day and not the current minute
-            cal.set(Calendar.SECOND, 59); //so it get all day and not the current minute
+            cal.set(Calendar.HOUR_OF_DAY, 23);
+            cal.set(Calendar.MINUTE, 59);
+            cal.set(Calendar.SECOND, 59);
 
 
             cal.getTime();
@@ -93,7 +122,7 @@ public class MainActivity extends AppCompatActivity implements
             cal.add(Calendar.WEEK_OF_YEAR, -1);
             long startTime = cal.getTimeInMillis();
 
-            java.text.DateFormat dateFormat = DateFormat.getDateInstance();
+            DateFormat dateFormat = DateFormat.getDateInstance();
             Log.e("History", "Range Start: " + dateFormat.format(startTime));
             Log.e("History", "Range End: " + dateFormat.format(endTime));
 
@@ -135,6 +164,10 @@ public class MainActivity extends AppCompatActivity implements
                 }
             }
             setPasosSemana(cuentaPasos);
+
+            podium();
+
+
             return null;
             //https://github.com/tutsplus/Android-GoogleFit-HistoryAPI/blob/master/app/src/main/java/com/tutsplus/googlefit/MainActivity.java
         }
@@ -151,12 +184,27 @@ public class MainActivity extends AppCompatActivity implements
             Log.e("History", "Data point:");
             Log.e("History", "\tType: " + dp.getDataType().getName());
             Log.e("History", "\tStart: " + dateFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)) + " " + timeFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)));
-            Log.e("History", "\tEnd: " + dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)) + " " + timeFormat.format(dp.getStartTime(TimeUnit.MILLISECONDS)));
+            Log.e("History", "\tEnd: " + dateFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)) + " " + timeFormat.format(dp.getEndTime(TimeUnit.MILLISECONDS)));
             for(Field field : dp.getDataType().getFields()) {
                 Log.e("History", "\tField: " + field.getName() +
                         " Value: " + dp.getValue(field));
                 if (field.getName().equals("steps")){
                     cuentaPasos += dp.getValue(field).asInt();
+
+                    Map<String, Object> historicoActual = new HashMap<>();
+
+
+                    Calendar calendar = Calendar.getInstance();
+                    calendar.setTimeInMillis(dp.getEndTime(TimeUnit.MILLISECONDS));
+
+                    calendar.set(Calendar.HOUR_OF_DAY, 23);
+                    calendar.set(Calendar.MINUTE, 59);
+                    calendar.set(Calendar.SECOND, 59);
+
+                    historicoActual.put("date", calendar.getTime());
+                    historicoActual.put("pasos",dp.getValue(field).asInt());
+                    historicoPasos.add(historicoActual);
+
                 }
             }
         }
@@ -185,6 +233,17 @@ public class MainActivity extends AppCompatActivity implements
                         if (task.isSuccessful()) {
                             // Sign in success, update UI with the signed-in user's information
                             FirebaseUser user = mAuth.getCurrentUser();
+
+                            Map<String, Object> data = new HashMap<>();
+                            data.put("pasos", 0);
+                            data.put("author_id", mAuth.getUid());
+
+                            data.put("historico", new HashMap<>());
+                            data.put("grupo", db.collection("grupo").document("default") );
+
+
+                            db.collection("users").document(user.getUid()).set(data);
+
                         } else {
                             // If sign in fails, display a message to the user.
                             Toast.makeText(MainActivity.this, "Authentication failed.",
@@ -225,8 +284,38 @@ public class MainActivity extends AppCompatActivity implements
     public void onConnected(@Nullable Bundle bundle) {
         Log.e("HistoryAPI", "onConnected");
 
-        new ViewTodaysStepCountTask().execute();
         new ViewWeekStepCountTask().execute();
+    }
+
+    public void podium(){
+        db.collection("users")
+                .whereEqualTo("grupo", db.collection("grupo").document("default"))
+                .orderBy("pasos", Query.Direction.DESCENDING)
+                .get()
+                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                        if (task.isSuccessful()) {
+                            int cantidad = task.getResult().size();
+                            int posicion = 1;
+                            for (QueryDocumentSnapshot document : task.getResult()) {
+                                Log.d(TAG, document.getId() + " => " + document.getData());
+                                Log.d(TAG, posicion + ". - Pasos: " + document.getData().get("pasos"));
+                                try {
+                                    if (document.getData().get("author_id").equals(mAuth.getUid())) {
+                                        Log.d(TAG, "  ^^^YO");
+                                    }
+                                } catch (NullPointerException e) {
+                                    Log.d(TAG, "");
+                                }
+                                posicion += 1;
+                            }
+                            Log.d(TAG, "TOTAL: " + cantidad);
+                        } else {
+                            Log.d(TAG, "Error getting documents: ", task.getException());
+                        }
+                    }
+                });
     }
 
 }
