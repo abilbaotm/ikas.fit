@@ -72,7 +72,7 @@ public class MainActivity extends AppCompatActivity implements
 
 // Add a new document with a generated ID
         db.collection("users").document(mAuth.getUid()).update("pasos",pasosSemana);
-        db.collection("users").document(mAuth.getUid()).update("hisorico",historicoPasos);
+        db.collection("users").document(mAuth.getUid()).update("historico",historicoPasos);
 
 
 
