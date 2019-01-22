@@ -228,6 +228,8 @@ public class MainActivity extends AppCompatActivity implements
                             data.put("author_id", mAuth.getUid());
 
                             data.put("historico", new HashMap<>());
+                            data.put("grupo", db.collection("grupo").document("default") );
+
 
                             db.collection("users").document(user.getUid()).set(data);
 
@@ -271,7 +273,6 @@ public class MainActivity extends AppCompatActivity implements
     public void onConnected(@Nullable Bundle bundle) {
         Log.e("HistoryAPI", "onConnected");
 
-        new ViewTodaysStepCountTask().execute();
         new ViewWeekStepCountTask().execute();
     }
 
