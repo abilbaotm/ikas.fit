@@ -47,6 +47,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.model.DocumentKey;
+import com.google.firebase.firestore.model.ResourcePath;
 import com.google.firestore.v1beta1.WriteResult;
 
 import java.text.DateFormat;
@@ -314,6 +316,11 @@ public class MainActivity extends AppCompatActivity implements
                                     if (document.getData().get("author_id").equals(mAuth.getUid())) {
                                         Log.d(TAG, "  ^^^YO");
                                         posicionPodium = posicion;
+
+                                        //guardar grupo actual
+                                        DocumentReference obj = (DocumentReference) document.getData().get("grupo");
+                                        obtenerGrupo(obj);
+
                                     }
                                 } catch (NullPointerException e) {
                                     Log.d(TAG, "");
@@ -332,6 +339,33 @@ public class MainActivity extends AppCompatActivity implements
                 });
     }
 
+    public void obtenerGrupo(DocumentReference documentReference){
+        //https://firebase.google.com/docs/firestore/query-data/get-data
+        Log.d(TAG, documentReference.getPath());
+        db.document(documentReference.getPath())
+                .get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                        if (task.isSuccessful()) {
+                            DocumentSnapshot document = task.getResult();
+                            if (document.exists()) {
+
+                                TextView grupoActual = (TextView) findViewById(R.id.grupoActual);
+                                grupoActual.setText(document.getData().get("nombre").toString());
+
+
+                            } else {
+                                Log.d(TAG, "No such document");
+                            }
+                        } else {
+                            Log.d(TAG, "get failed with ", task.getException());
+                        }
+                    }
+                });
+
+
+
+    }
     public void actualizarUi(final int posicionPodium, int cantidad){
         TextView podiumTxt = (TextView) findViewById(R.id.position);
         podiumTxt.setText(posicionPodium + "/" + cantidad);
