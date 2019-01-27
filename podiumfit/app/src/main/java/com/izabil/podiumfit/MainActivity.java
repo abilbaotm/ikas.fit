@@ -4,12 +4,18 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Intent;
+import android.graphics.Color;
 import android.icu.util.Calendar;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.renderscript.Element;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -286,7 +292,8 @@ public class MainActivity extends AppCompatActivity implements
 
         new ViewWeekStepCountTask().execute();
     }
-
+    private String podium[];
+    private int posicionPodium = 1;
     public void podium(){
         db.collection("users")
                 .whereEqualTo("grupo", db.collection("grupo").document("default"))
@@ -297,25 +304,50 @@ public class MainActivity extends AppCompatActivity implements
                     public void onComplete(@NonNull Task<QuerySnapshot> task) {
                         if (task.isSuccessful()) {
                             int cantidad = task.getResult().size();
+                            podium = new String[cantidad];
                             int posicion = 1;
                             for (QueryDocumentSnapshot document : task.getResult()) {
                                 Log.d(TAG, document.getId() + " => " + document.getData());
                                 Log.d(TAG, posicion + ". - Pasos: " + document.getData().get("pasos"));
+                                podium[posicion-1] = posicion + ".- " + document.getData().get("pasos");
                                 try {
                                     if (document.getData().get("author_id").equals(mAuth.getUid())) {
                                         Log.d(TAG, "  ^^^YO");
+                                        posicionPodium = posicion;
                                     }
                                 } catch (NullPointerException e) {
                                     Log.d(TAG, "");
                                 }
                                 posicion += 1;
+
                             }
+
+                            actualizarUi(posicionPodium, cantidad);
+
                             Log.d(TAG, "TOTAL: " + cantidad);
                         } else {
                             Log.d(TAG, "Error getting documents: ", task.getException());
                         }
                     }
                 });
+    }
+
+    public void actualizarUi(final int posicionPodium, int cantidad){
+        TextView podiumTxt = (TextView) findViewById(R.id.position);
+        podiumTxt.setText(posicionPodium + "/" + cantidad);
+
+
+
+
+    }
+
+    public void verClasificacion(View view)
+    {
+        Intent intent = new Intent(MainActivity.this, Clasificacion.class);
+        //https://www.dev2qa.com/passing-data-between-activities-android-tutorial/
+        intent.putExtra("podium", podium);
+        intent.putExtra("posicionPodium", posicionPodium);
+        startActivity(intent);
     }
 
 }
