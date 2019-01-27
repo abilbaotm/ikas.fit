@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Podium Fit</string>
+    <string name="title_activity_selector_grupo">SelectorGrupo</string>
 </resources>
