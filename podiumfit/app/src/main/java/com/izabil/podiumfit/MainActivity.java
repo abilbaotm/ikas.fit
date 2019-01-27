@@ -9,6 +9,7 @@ import android.graphics.Color;
 import android.icu.util.Calendar;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.renderscript.Element;
 import android.util.Log;
 import android.view.View;
@@ -36,6 +37,7 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
@@ -51,6 +53,7 @@ import com.google.firebase.firestore.model.DocumentKey;
 import com.google.firebase.firestore.model.ResourcePath;
 import com.google.firestore.v1beta1.WriteResult;
 
+import java.io.Serializable;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -242,15 +245,34 @@ public class MainActivity extends AppCompatActivity implements
                             // Sign in success, update UI with the signed-in user's information
                             FirebaseUser user = mAuth.getCurrentUser();
 
-                            Map<String, Object> data = new HashMap<>();
-                            data.put("pasos", 0);
-                            data.put("author_id", mAuth.getUid());
 
-                            data.put("historico", new HashMap<>());
-                            data.put("grupo", db.collection("grupo").document("default") );
+                            db.collection("users").document(mAuth.getUid()).get()
+                                    .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                                        @Override
+                                        public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                                            if (task.isSuccessful()) {
+                                                DocumentSnapshot document = task.getResult();
+                                                if (document.exists()) {
+                                                    Log.d("TAG", "such document");
+                                                } else {
+                                                    Map<String, Object> data = new HashMap<>();
+                                                    data.put("pasos", 0);
+                                                    data.put("author_id", mAuth.getUid());
+
+                                                    data.put("historico", new HashMap<>());
+                                                    data.put("grupo", db.collection("grupo").document("default") );
 
 
-                            db.collection("users").document(user.getUid()).set(data);
+                                                    db.collection("users").document(mAuth.getUid()).set(data);
+                                                    Log.d("TAG", "No such document");
+                                                }
+                                            } else {
+                                                Log.d("TAG", "get failed with ", task.getException());
+                                            }
+                                        }
+                                    });
+
+
 
                         } else {
                             // If sign in fails, display a message to the user.
@@ -293,50 +315,66 @@ public class MainActivity extends AppCompatActivity implements
         Log.e("HistoryAPI", "onConnected");
 
         new ViewWeekStepCountTask().execute();
+        podium();
     }
     private String podium[];
     private int posicionPodium = 1;
     public void podium(){
-        db.collection("users")
-                .whereEqualTo("grupo", db.collection("grupo").document("default"))
-                .orderBy("pasos", Query.Direction.DESCENDING)
-                .get()
-                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
-                        if (task.isSuccessful()) {
-                            int cantidad = task.getResult().size();
-                            podium = new String[cantidad];
-                            int posicion = 1;
-                            for (QueryDocumentSnapshot document : task.getResult()) {
-                                Log.d(TAG, document.getId() + " => " + document.getData());
-                                Log.d(TAG, posicion + ". - Pasos: " + document.getData().get("pasos"));
-                                podium[posicion-1] = posicion + ".- " + document.getData().get("pasos");
-                                try {
-                                    if (document.getData().get("author_id").equals(mAuth.getUid())) {
-                                        Log.d(TAG, "  ^^^YO");
-                                        posicionPodium = posicion;
+        DocumentReference docRef = db.collection("users").document(mAuth.getUid());
+        docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+            @Override
+            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot document = task.getResult();
+                    if (document.exists()) {
+                        db.collection("users")
+                                .whereEqualTo("grupo", document.get("grupo"))
+                                .orderBy("pasos", Query.Direction.DESCENDING)
+                                .get()
+                                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                                    @Override
+                                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                                        if (task.isSuccessful()) {
+                                            int cantidad = task.getResult().size();
+                                            podium = new String[cantidad];
+                                            int posicion = 1;
+                                            for (QueryDocumentSnapshot document : task.getResult()) {
+                                                Log.d(TAG, document.getId() + " => " + document.getData());
+                                                Log.d(TAG, posicion + ". - Pasos: " + document.getData().get("pasos"));
+                                                podium[posicion-1] = posicion + ".- " + document.getData().get("pasos");
+                                                try {
+                                                    if (document.getData().get("author_id").equals(mAuth.getUid())) {
+                                                        Log.d(TAG, "  ^^^YO");
+                                                        posicionPodium = posicion;
 
-                                        //guardar grupo actual
-                                        DocumentReference obj = (DocumentReference) document.getData().get("grupo");
-                                        obtenerGrupo(obj);
+                                                        //guardar grupo actual
+                                                        DocumentReference obj = (DocumentReference) document.getData().get("grupo");
+                                                        obtenerGrupo(obj);
 
+                                                    }
+                                                } catch (NullPointerException e) {
+                                                    Log.d(TAG, "");
+                                                }
+                                                posicion += 1;
+
+                                            }
+
+                                            actualizarUi(posicionPodium, cantidad);
+
+                                            Log.d(TAG, "TOTAL: " + cantidad);
+                                        } else {
+                                            Log.d(TAG, "Error getting documents: ", task.getException());
+                                        }
                                     }
-                                } catch (NullPointerException e) {
-                                    Log.d(TAG, "");
-                                }
-                                posicion += 1;
-
-                            }
-
-                            actualizarUi(posicionPodium, cantidad);
-
-                            Log.d(TAG, "TOTAL: " + cantidad);
-                        } else {
-                            Log.d(TAG, "Error getting documents: ", task.getException());
-                        }
+                                });
                     }
-                });
+                } else {
+                    Log.d(TAG, "get failed with ", task.getException());
+                }
+            }
+        });
+
+
     }
 
     public void obtenerGrupo(DocumentReference documentReference){
@@ -351,6 +389,7 @@ public class MainActivity extends AppCompatActivity implements
                             if (document.exists()) {
 
                                 TextView grupoActual = (TextView) findViewById(R.id.grupoActual);
+                                Log.e("STOP", document.getData().get("nombre").toString());
                                 grupoActual.setText(document.getData().get("nombre").toString());
 
 
@@ -382,6 +421,11 @@ public class MainActivity extends AppCompatActivity implements
         intent.putExtra("podium", podium);
         intent.putExtra("posicionPodium", posicionPodium);
         startActivity(intent);
+    }
+    public void verAjustes(View view){
+        Intent intent = new Intent(MainActivity.this, SelectorGrupo.class);
+        startActivity(intent);
+
     }
 
 }
