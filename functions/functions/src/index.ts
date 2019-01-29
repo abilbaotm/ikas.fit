@@ -28,27 +28,32 @@ app.get('/recuento/', (req, res) => {
     citiesRef.get()
         .then(snapshot => {
             snapshot.forEach(doc => {
-                const datos = doc.data();
-                const historicoPasos = datos.historico;
-                console.log(historicoPasos.length);
+                try {
+                    const datos = doc.data();
+                    const historicoPasos = datos.historico;
+                    console.log(historicoPasos.length);
 
-                let nuevaSuma = 0;
-                let nuevoHistorial = [];
-                for (let i in historicoPasos) {
+                    let nuevaSuma = 0;
+                    let nuevoHistorial = [];
+                    for (let i in historicoPasos) {
 
-                    if (now.getTime() < historicoPasos[i].date.getTime()) {
-                        nuevaSuma += historicoPasos[i].pasos;
-                        nuevoHistorial = nuevoHistorial.concat(historicoPasos[i])
+                        if (now.getTime() < historicoPasos[i].date.getTime()) {
+                            nuevaSuma += historicoPasos[i].pasos;
+                            nuevoHistorial = nuevoHistorial.concat(historicoPasos[i])
+                        }
                     }
+                    console.log(nuevoHistorial);
+                    console.log(nuevaSuma);
+
+                    const setDoc = db.collection('users').doc(doc.id).set({'historico': nuevoHistorial}, { merge: false });
+                    const setDoc2 = db.collection('users').doc(doc.id).set({'pasos': nuevaSuma}, { merge: true });
+
+                    setDoc;
+                    setDoc2;
+                } catch (e) {
+                    console.log(e);
                 }
-                console.log(nuevoHistorial);
-                console.log(nuevaSuma);
 
-                const setDoc = db.collection('users').doc(doc.id).set({'historico': nuevoHistorial}, { merge: true });
-                const setDoc2 = db.collection('users').doc(doc.id).set({'pasos': nuevaSuma}, { merge: true });
-
-                setDoc;
-                setDoc2;
 
 
 
