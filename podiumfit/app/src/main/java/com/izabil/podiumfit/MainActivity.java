@@ -170,6 +170,8 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     private int showDataSet(DataSet dataSet) {
+        // https://github.com/navigatorv/Android_Health_Tracking_App/blob/master/app/src/main/java/com/example/kzha6954/mysteps/GoogleFit/GoogleFitService.java#L218-L260
+
         int cuentaPasos = 0;
         Log.e("History", "Data returned for Data type: " + dataSet.getDataType().getName());
         DateFormat dateFormat = DateFormat.getDateInstance();
@@ -209,6 +211,10 @@ public class MainActivity extends AppCompatActivity implements
 
     private void displayStepDataForToday() {
         DailyTotalResult result = Fitness.HistoryApi.readDailyTotal( mGoogleApiClient, DataType.TYPE_STEP_COUNT_DELTA ).await(1, TimeUnit.MINUTES);
+
+        //limpiar el historico de pasos
+        historicoPasos =  new ArrayList<>();
+
         showDataSet(result.getTotal());
     }
 
