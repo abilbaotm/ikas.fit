@@ -58,7 +58,7 @@ Los pasos de un día tiene caducidad, véase [functions](functions) para más in
 Las colecciones de grupos tendrán documentos identificados con un id autogenerado, estos documentos guardarán como campos el nombre del grupo.
 
 
-#functions
+# functions
 
 En esta aplicación los pasos caducan, si un usuario dispone en su contador pasos de hace mas de una semana, estos serán eliminados y descontados del contador.
 
