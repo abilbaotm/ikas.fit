@@ -16,7 +16,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
   	match /{document=**} {
       allow create: if request.auth.uid != null;
-  		allow update: if request.auth.uid == resource.data.author_id;
+      allow update: if request.auth.uid == resource.data.author_id;
       allow read: if request.auth.uid != null;
     }
   }
@@ -28,7 +28,7 @@ Dos colecciones están presentes en la base de datos: users y grupo.
 ```json
 {
     "author_id": "AmibTKDhFeZW6QHu50Qy00NyQm33",
-    "grupo": /grupo/default #ref
+    "grupo": "/grupo/default", #ref
     "historico": {
       "0": {"date": "22 de enero de 2019, 23:59:59 UTC+1", "pasos": 1000 },
       "1": {"date": "23 de enero de 2019, 23:59:59 UTC+1", "pasos": 1000 },
@@ -51,7 +51,7 @@ Los pasos de un día tiene caducidad, véase [functions](functions) para más in
 ### grupos
 ```json
 {
-  nombre: "Default"
+  "nombre": "Default"
 }
 ```
 
