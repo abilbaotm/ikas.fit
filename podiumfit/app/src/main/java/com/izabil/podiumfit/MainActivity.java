@@ -1,9 +1,5 @@
 package com.izabil.podiumfit;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.Intent;
 import android.icu.util.Calendar;
 import android.os.AsyncTask;
@@ -47,35 +43,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+
 public class MainActivity extends AppCompatActivity implements
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener {
+    private static final String TAG = "LOGIN";
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
-
-    private static final String TAG = "LOGIN";
     private GoogleApiClient mGoogleApiClient;
 
 
     private int pasosSemana=0;
     private ArrayList<Object> historicoPasos = new ArrayList<>();
-    private void setPasosSemana(int nuevos) {
-        Log.e("HistoryAPI", "Pasos en semana: " + nuevos);
-
-        pasosSemana = nuevos;
+    private String podium[];
+    private int posicionPodium = 1;
 
 
-// Add a new document with a generated ID
-        db.collection("users").document(mAuth.getUid()).update("pasos",pasosSemana);
-        db.collection("users").document(mAuth.getUid()).update("historico",historicoPasos);
-
-
-
-
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // iniciar FirebaseAuth y FirebaseFirestore
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -91,87 +81,13 @@ public class MainActivity extends AppCompatActivity implements
                 .build();
 
 
-//        displayStepDataForToday();
 
-
-    }
-
-    private class ViewWeekStepCountTask extends AsyncTask<Void, Void, Void> {
-        protected Void doInBackground(Void... params) {
-
-
-            Calendar cal = Calendar.getInstance();
-            Date now = new Date();
-
-
-
-            cal.setTime(now);
-            cal.set(Calendar.HOUR_OF_DAY, 23);
-            cal.set(Calendar.MINUTE, 59);
-            cal.set(Calendar.SECOND, 59);
-
-
-            cal.getTime();
-
-            long endTime = cal.getTimeInMillis();
-            cal.add(Calendar.WEEK_OF_YEAR, -1);
-            long startTime = cal.getTimeInMillis();
-
-            DateFormat dateFormat = DateFormat.getDateInstance();
-            Log.e("History", "Range Start: " + dateFormat.format(startTime));
-            Log.e("History", "Range End: " + dateFormat.format(endTime));
-
-//Check how many steps were walked and recorded in the last 7 days
-            final DataSource ds = new DataSource.Builder()
-                    .setAppPackageName("com.google.android.gms")
-                    .setDataType(DataType.TYPE_STEP_COUNT_DELTA)
-                    .setType(DataSource.TYPE_DERIVED)
-                    .setStreamName("estimated_steps")
-                    .build();
-
-
-            DataReadRequest readRequest = new DataReadRequest.Builder()
-                    .aggregate(ds, DataType.AGGREGATE_STEP_COUNT_DELTA)
-                    .bucketByTime(1, TimeUnit.DAYS)
-                    .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-                    .build();
-
-
-            DataReadResult dataReadResult = Fitness.HistoryApi.readData(mGoogleApiClient, readRequest).await(1, TimeUnit.MINUTES);
-
-            int cuentaPasos = 0;
-
-            //Used for aggregated data
-            if (dataReadResult.getBuckets().size() > 0) {
-                Log.e("History", "Number of buckets: " + dataReadResult.getBuckets().size());
-                for (Bucket bucket : dataReadResult.getBuckets()) {
-                    List<DataSet> dataSets = bucket.getDataSets();
-                    for (DataSet dataSet : dataSets) {
-                        cuentaPasos += showDataSet(dataSet);
-                    }
-                }
-            }
-//Used for non-aggregated data
-            else if (dataReadResult.getDataSets().size() > 0) {
-                Log.e("History", "Number of returned DataSets: " + dataReadResult.getDataSets().size());
-                for (DataSet dataSet : dataReadResult.getDataSets()) {
-                    cuentaPasos += showDataSet(dataSet);
-                }
-            }
-            setPasosSemana(cuentaPasos);
-
-            podium();
-
-
-            return null;
-            //https://github.com/tutsplus/Android-GoogleFit-HistoryAPI/blob/master/app/src/main/java/com/tutsplus/googlefit/MainActivity.java
-        }
 
     }
 
     private int showDataSet(DataSet dataSet) {
         // https://github.com/navigatorv/Android_Health_Tracking_App/blob/master/app/src/main/java/com/example/kzha6954/mysteps/GoogleFit/GoogleFitService.java#L218-L260
-
+        // obtenido el dataset de Google Fit, calcular todos los pasos de la semana
         int cuentaPasos = 0;
         Log.e("History", "Data returned for Data type: " + dataSet.getDataType().getName());
         DateFormat dateFormat = DateFormat.getDateInstance();
@@ -186,8 +102,10 @@ public class MainActivity extends AppCompatActivity implements
                 Log.e("History", "\tField: " + field.getName() +
                         " Value: " + dp.getValue(field));
                 if (field.getName().equals("steps")){
+                    //sumar los pasos
                     cuentaPasos += dp.getValue(field).asInt();
 
+                    //generar el historico
                     Map<String, Object> historicoActual = new HashMap<>();
 
 
@@ -200,6 +118,7 @@ public class MainActivity extends AppCompatActivity implements
 
                     historicoActual.put("date", calendar.getTime());
                     historicoActual.put("pasos",dp.getValue(field).asInt());
+                    //añadir a la lista el historico de este día
                     historicoPasos.add(historicoActual);
 
                 }
@@ -209,14 +128,6 @@ public class MainActivity extends AppCompatActivity implements
         return (cuentaPasos);
     }
 
-    private void displayStepDataForToday() {
-        DailyTotalResult result = Fitness.HistoryApi.readDailyTotal( mGoogleApiClient, DataType.TYPE_STEP_COUNT_DELTA ).await(1, TimeUnit.MINUTES);
-
-        //limpiar el historico de pasos
-        historicoPasos =  new ArrayList<>();
-
-        showDataSet(result.getTotal());
-    }
 
     @Override
     public void onStart() {
@@ -235,7 +146,7 @@ public class MainActivity extends AppCompatActivity implements
                             // Sign in success, update UI with the signed-in user's information
                             FirebaseUser user = mAuth.getCurrentUser();
 
-
+                            //check usuario
                             db.collection("users").document(mAuth.getUid()).get()
                                     .addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
                                         @Override
@@ -245,14 +156,17 @@ public class MainActivity extends AppCompatActivity implements
                                                 if (document.exists()) {
                                                     Log.d("TAG", "such document");
                                                 } else {
+                                                    //generar estructura para este usuario nuevo
                                                     Map<String, Object> data = new HashMap<>();
                                                     data.put("pasos", 0);
                                                     data.put("author_id", mAuth.getUid());
 
                                                     data.put("historico", new HashMap<>());
+
+                                                    // bydefault se añade al grup default
                                                     data.put("grupo", db.collection("grupo").document("default") );
 
-
+                                                    //subir la info anterior a la db
                                                     db.collection("users").document(mAuth.getUid()).set(data);
                                                     Log.d("TAG", "No such document");
                                                 }
@@ -275,22 +189,7 @@ public class MainActivity extends AppCompatActivity implements
                 });
         // [END signin_anonymously]
     }
-    private class ViewTodaysStepCountTask extends AsyncTask<Void, Void, Void> {
-        protected Void doInBackground(Void... params) {
-            displayStepDataForToday();
-            return null;
-        }
-    }
 
-    public static Date removeTime(Date date) {
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(date);
-        cal.set(Calendar.HOUR_OF_DAY, 0);
-        cal.set(Calendar.MINUTE, 0);
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-        return cal.getTime();
-    }
     @Override
     public void onConnectionSuspended(int i) {
         Log.e("HistoryAPI", "onConnectionSuspended");
@@ -304,12 +203,14 @@ public class MainActivity extends AppCompatActivity implements
     public void onConnected(@Nullable Bundle bundle) {
         Log.e("HistoryAPI", "onConnected");
 
+        //solicitar la actualización de datos
         new ViewWeekStepCountTask().execute();
         podium();
     }
-    private String podium[];
-    private int posicionPodium = 1;
+
     public void podium(){
+        //procesar los datos para el podium
+
         DocumentReference docRef = db.collection("users").document(mAuth.getUid());
         docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
             @Override
@@ -395,6 +296,7 @@ public class MainActivity extends AppCompatActivity implements
 
 
     }
+
     public void actualizarUi(final int posicionPodium, int cantidad){
         TextView podiumTxt = (TextView) findViewById(R.id.position);
         podiumTxt.setText(posicionPodium + "/" + cantidad);
@@ -414,10 +316,103 @@ public class MainActivity extends AppCompatActivity implements
         intent.putExtra("posicionPodium", posicionPodium);
         startActivity(intent);
     }
+
     public void verAjustes(View view){
         Intent intent = new Intent(MainActivity.this, SelectorGrupo.class);
         startActivity(intent);
 
     }
+
+    private class ViewWeekStepCountTask extends AsyncTask<Void, Void, Void> {
+        protected Void doInBackground(Void... params) {
+
+            historicoPasos =  new ArrayList<>();
+
+            Calendar cal = Calendar.getInstance();
+            Date now = new Date();
+
+
+            //hack: decir que la hora actual es 23:59:59 para obtener buckets de días enteros
+            cal.setTime(now);
+            cal.set(Calendar.HOUR_OF_DAY, 23);
+            cal.set(Calendar.MINUTE, 59);
+            cal.set(Calendar.SECOND, 59);
+
+
+            cal.getTime();
+
+            long endTime = cal.getTimeInMillis();
+            //restar una semana
+            cal.add(Calendar.WEEK_OF_YEAR, -1);
+            long startTime = cal.getTimeInMillis();
+
+            DateFormat dateFormat = DateFormat.getDateInstance();
+            Log.e("History", "Range Start: " + dateFormat.format(startTime));
+            Log.e("History", "Range End: " + dateFormat.format(endTime));
+
+            //solicitar los pasos
+            final DataSource ds = new DataSource.Builder()
+                    .setAppPackageName("com.google.android.gms")
+                    .setDataType(DataType.TYPE_STEP_COUNT_DELTA)
+                    .setType(DataSource.TYPE_DERIVED)
+                    .setStreamName("estimated_steps")
+                    .build();
+
+
+
+            DataReadRequest readRequest = new DataReadRequest.Builder()
+                    .aggregate(ds, DataType.AGGREGATE_STEP_COUNT_DELTA)
+                    .bucketByTime(1, TimeUnit.DAYS)
+                    .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+                    .build();
+
+
+            DataReadResult dataReadResult = Fitness.HistoryApi.readData(mGoogleApiClient, readRequest).await(1, TimeUnit.MINUTES);
+
+            int cuentaPasos = 0;
+            //procesar los buckets de los pasos
+            //Used for aggregated data
+            if (dataReadResult.getBuckets().size() > 0) {
+                Log.e("History", "Number of buckets: " + dataReadResult.getBuckets().size());
+                for (Bucket bucket : dataReadResult.getBuckets()) {
+                    List<DataSet> dataSets = bucket.getDataSets();
+                    for (DataSet dataSet : dataSets) {
+                        cuentaPasos += showDataSet(dataSet);
+                    }
+                }
+            }
+            //Used for non-aggregated data
+            else if (dataReadResult.getDataSets().size() > 0) {
+                Log.e("History", "Number of returned DataSets: " + dataReadResult.getDataSets().size());
+                for (DataSet dataSet : dataReadResult.getDataSets()) {
+                    cuentaPasos += showDataSet(dataSet);
+                }
+            }
+            //actualizar los pasos de la semana
+            setPasosSemana(cuentaPasos);
+
+            //solicitar la actualización de los pasos
+            podium();
+
+
+            return null;
+            //https://github.com/tutsplus/Android-GoogleFit-HistoryAPI/blob/master/app/src/main/java/com/tutsplus/googlefit/MainActivity.java
+        }
+
+    }
+
+    private void setPasosSemana(int nuevos) {
+        Log.e("HistoryAPI", "Pasos en semana: " + nuevos);
+
+        pasosSemana = nuevos;
+
+
+        // Actualizar colección con los nuevos pasos e historico
+        db.collection("users").document(mAuth.getUid()).update("pasos",pasosSemana);
+        db.collection("users").document(mAuth.getUid()).update("historico",historicoPasos);
+
+
+    }
+
 
 }
